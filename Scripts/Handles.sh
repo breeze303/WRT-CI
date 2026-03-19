@@ -98,13 +98,6 @@ if [ -d *"luci-app-netspeedtest"* ]; then
 	cd $PKG_PATH && echo "netspeedtest has been fixed!"
 fi
 
-#修复luci-app-daed相关问题
-DAED_MAKEFILE=$(find . -maxdepth 4 -name Makefile | xargs grep -l "PKG_NAME:=daed")
-if [ -n "$DAED_MAKEFILE" ]; then
-    sed -i 's/GOEXPERIMENT=/# &/' "$DAED_MAKEFILE"
-	echo "已修复daed。"
-fi
-
 #临时修复smartdns哈希问题
 # 1. 定义变量（旧哈希与新哈希）
 OLD_HASH="34c85d914e01006439f5e1c9287ae96d6bfcc729ed4bcf386bf5948b938254f4"
