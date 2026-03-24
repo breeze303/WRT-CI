@@ -141,13 +141,19 @@ echo " "
         sed -i 's#https://github.com/v2fly/domain-list-community/releases/download/#https://github.com/Loyalsoldier/v2ray-rules-dat/releases/download/#g' "$V2RAY_GEODATA_FILE"
 
         # 4. geosite 文件名从 dlc.dat 改为 geosite.dat
-        sed -i 's#^GEOSITE_FILE:=dlc\.dat\.\$(GEOSITE_VER)#GEOSITE_FILE:=geosite.dat.$(GEOSITE_VER)#' "$V2RAY_GEODATA_FILE"
-        sed -i '/define Download\/geosite/,/endef/ s#^URL_FILE:=dlc\.dat#URL_FILE:=geosite.dat#' "$V2RAY_GEODATA_FILE"
+        sed -i 's#^GEOSITE_FILE:=dlc\.dat\.\$(GEOSITE_VER)$#GEOSITE_FILE:=geosite.dat.$(GEOSITE_VER)#' "$V2RAY_GEODATA_FILE"
+        sed -i '/^define Download\/geosite$/,/^endef$/ s#^[[:space:]]*URL_FILE:=dlc\.dat$#URL_FILE:=geosite.dat#' "$V2RAY_GEODATA_FILE"
 
         # 5. hash 改为 skip，避免换源后校验不匹配
-        sed -i '/define Download\/geoip/,/endef/ s#^HASH:=.*#HASH:=skip#' "$V2RAY_GEODATA_FILE"
-        sed -i '/define Download\/geosite/,/endef/ s#^HASH:=.*#HASH:=skip#' "$V2RAY_GEODATA_FILE"
-
+		sed -i '/define Download\/geoip/,/endef/ s#^[[:space:]]*HASH:=.*#HASH:=skip#' "$V2RAY_GEODATA_FILE"
+        sed -i '/define Download\/geosite$/, /endef/ s#^[[:space:]]*HASH:=.*#HASH:=skip#' "$V2RAY_GEODATA_FILE"
+		
+        echo "===== AFTER PATCH ====="
+        sed -n '/define Download\/geoip/,/endef/p' "$V2RAY_GEODATA_FILE"
+        echo "-----------------------"
+        sed -n '/define Download\/geosite$/, /endef/p' "$V2RAY_GEODATA_FILE"
+        echo "======================="
+		
         cd "$PKG_PATH" && echo "v2ray-geodata source and version have been fixed! tag=$LS_TAG"
     else
         echo "failed to fetch Loyalsoldier latest release tag!"
