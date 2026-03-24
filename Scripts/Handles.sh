@@ -119,3 +119,37 @@ else
     echo "当前文件内容："
     grep -i "HASH" "$FILE"
 fi
+
+# 修改 v2ray-geodata 下载源与版本
+V2RAY_GEODATA_FILE="../feeds/packages/net/v2ray-geodata/Makefile"
+if [ -f "$V2RAY_GEODATA_FILE" ]; then
+echo " "
+
+    # 获取 Loyalsoldier 最新 release tag
+    LS_TAG=$(curl -fsSL https://api.github.com/repos/Loyalsoldier/v2ray-rules-dat/releases/latest \
+        | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)
+
+    if [ -n "$LS_TAG" ]; then
+        # 1. 更新 GEOIP_VER 和 GEOSITE_VER
+        sed -i "s/^GEOIP_VER:=.*/GEOIP_VER:=$LS_TAG/" "$V2RAY_GEODATA_FILE"
+        sed -i "s/^GEOSITE_VER:=.*/GEOSITE_VER:=$LS_TAG/" "$V2RAY_GEODATA_FILE"
+
+        # 2. geoip 下载源改为 Loyalsoldier
+        sed -i 's#https://github.com/v2fly/geoip/releases/download/#https://github.com/Loyalsoldier/v2ray-rules-dat/releases/download/#g' "$V2RAY_GEODATA_FILE"
+
+        # 3. geosite 下载源改为 Loyalsoldier
+        sed -i 's#https://github.com/v2fly/domain-list-community/releases/download/#https://github.com/Loyalsoldier/v2ray-rules-dat/releases/download/#g' "$V2RAY_GEODATA_FILE"
+
+        # 4. geosite 文件名从 dlc.dat 改为 geosite.dat
+        sed -i 's#^GEOSITE_FILE:=dlc\.dat\.\$(GEOSITE_VER)#GEOSITE_FILE:=geosite.dat.$(GEOSITE_VER)#' "$V2RAY_GEODATA_FILE"
+        sed -i '/define Download\/geosite/,/endef/ s#^URL_FILE:=dlc\.dat#URL_FILE:=geosite.dat#' "$V2RAY_GEODATA_FILE"
+
+        # 5. hash 改为 skip，避免换源后校验不匹配
+        sed -i '/define Download\/geoip/,/endef/ s#^HASH:=.*#HASH:=skip#' "$V2RAY_GEODATA_FILE"
+        sed -i '/define Download\/geosite/,/endef/ s#^HASH:=.*#HASH:=skip#' "$V2RAY_GEODATA_FILE"
+
+        cd "$PKG_PATH" && echo "v2ray-geodata source and version have been fixed! tag=$LS_TAG"
+    else
+        echo "failed to fetch Loyalsoldier latest release tag!"
+    fi
+fi
