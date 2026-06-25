@@ -98,12 +98,6 @@ if [ -d *"luci-app-netspeedtest"* ]; then
 	cd $PKG_PATH && echo "netspeedtest has been fixed!"
 fi
 
-#临时修复smartdns哈希问题
-# 1. 定义变量（旧哈希与新哈希）
-OLD_HASH="34c85d914e01006439f5e1c9287ae96d6bfcc729ed4bcf386bf5948b938254f4"
-NEW_HASH="skip"
-FILE="./openwrt-smartdns/Makefile"
-
 # 2. 执行替换
 sed -i "s/$OLD_HASH/$NEW_HASH/g" "$FILE"
 sed -i 's|\.\./\.\./lang/rust/rust-package\.mk|$(TOPDIR)/feeds/packages/lang/rust/rust-package.mk|g' "$FILE"
