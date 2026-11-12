@@ -158,6 +158,44 @@ jobs:
           $GITHUB_WORKSPACE/Scripts/Packages.sh
           $GITHUB_WORKSPACE/Scripts/Handles.sh
 
+
+      - name: Read Honk Toolchain Versions
+        id: honk_tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash "$GITHUB_WORKSPACE/wrt/package/luci-app-honk/honk/honk_toolchain.sh" >> "$GITHUB_OUTPUT"
+
+      - name: Install Honk Zig
+        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
+        with:
+          version: ${{ steps.honk_tools.outputs.ZIG_VERSION }}
+
+      - name: Install Honk Build Dependencies
+        shell: bash
+        env:
+          BPF_LINKER_VERSION: ${{ steps.honk_tools.outputs.BPF_LINKER_VERSION }}
+          BPF_LINKER_SHA256: ${{ steps.honk_tools.outputs.BPF_LINKER_SHA256 }}
+          HONK_ZIG_VERSION: ${{ steps.honk_tools.outputs.ZIG_VERSION }}
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y --no-install-recommends libbpf-dev zstd file
+          mkdir -p "$HOME/.cargo/bin"
+          ARCHIVE="$RUNNER_TEMP/honk-bpf-linker.tar.zst"
+          curl -fsSL --retry 3 \
+            "https://github.com/aya-rs/bpf-linker/releases/download/v${BPF_LINKER_VERSION}/bpf-linker-x86_64-unknown-linux-musl.tar.zst" \
+            -o "$ARCHIVE"
+          echo "${BPF_LINKER_SHA256}  $ARCHIVE" | sha256sum -c -
+          tar --zstd -xf "$ARCHIVE" -C "$HOME/.cargo/bin"
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.cargo/bin:$PATH"
+          test "$(zig version)" = "$HONK_ZIG_VERSION"
+          zig version
+          bpf-linker --version
+          cargo --version
+          rustup --version
+
+
       - name: Custom Settings
         run: |
           cd ./wrt/
