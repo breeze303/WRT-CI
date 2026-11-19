@@ -74,7 +74,7 @@ UPDATE_PACKAGE "quickfile" "sbwml/luci-app-quickfile" "main"
 UPDATE_PACKAGE "viking" "VIKINGYFY/packages" "main" "" "luci-app-timewol luci-app-wolplus"
 UPDATE_PACKAGE "vnt" "lmq8267/luci-app-vnt" "main"
 UPDATE_PACKAGE "luci-app-podman" "Zerogiven-OpenWRT-Packages/luci-app-podman" "main"
-UPDATE_PACKAGE "daeuniverse" "daeuniverse/openwrt-packages" "main"
+UPDATE_PACKAGE "honk" "QiuSimons/luci-app-honk" "master"
 UPDATE_PACKAGE "vantage" "anothaDev/luci-theme-vantage" "main"
 
 #更新软件包版本
