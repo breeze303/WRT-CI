@@ -153,3 +153,31 @@ echo " "
         echo "failed to fetch Loyalsoldier latest release tag!"
     fi
 fi
+
+# 拉取honk/src
+honk_pkg="${PKG_PATH%/}/openwrt-packages/honk"
+if [[ "${WRT_TEST:-}" != true && -f "$honk_pkg/Makefile" ]]; then
+    honk_tag=$(sed -nE \
+        's/^HONK_GIT_TAG[[:space:]]*:=[[:space:]]*\$\(if \$\(HONK_GIT_TAG\),\$\(HONK_GIT_TAG\),(v[0-9][A-Za-z0-9._-]*)\)[[:space:]]*$/\1/p' \
+        "$honk_pkg/Makefile")
+
+    if [[ ! "$honk_tag" =~ ^v[0-9][A-Za-z0-9._-]*$ ]]; then
+        echo "::error::Cannot read HONK_GIT_TAG from $honk_pkg/Makefile"
+        exit 1
+    fi
+
+    honk_src="$honk_pkg/src"
+    echo "Honk source tag: $honk_tag"
+    if [[ ! -e "$honk_src" ]]; then
+        git clone --depth 1 --branch "$honk_tag" \
+            https://github.com/daeuniverse/honk.git "$honk_src" || exit 1
+    fi
+
+    if [[ ! -f "$honk_src/Cargo.toml" || ! -e "$honk_src/.git" ]] ||
+        ! honk_head=$(git -C "$honk_src" rev-parse HEAD) ||
+        ! honk_expected=$(git -C "$honk_src" rev-parse --verify "refs/tags/$honk_tag^{commit}") ||
+        [[ "$honk_head" != "$honk_expected" ]]; then
+        echo "::error::$honk_src is not a Honk checkout at $honk_tag"
+        exit 1
+    fi
+fi
