@@ -175,6 +175,54 @@ jobs:
 
           make defconfig -j$(nproc) && make clean -j$(nproc)
 
+      - name: Prepare Honk Toolchains
+        if: env.WRT_TEST != 'true'
+        working-directory: ./wrt
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! grep -Eq '^CONFIG_PACKAGE_honk=[ym]$' .config; then
+            echo '[Honk] Skipped: package not selected'
+            exit 0
+          fi
+
+          arch=$(sed -n 's/^CONFIG_TARGET_ARCH_PACKAGES="\([^"]*\)"$/\1/p' .config)
+          case "$arch" in
+            x86_64)   target=x86_64-unknown-linux-musl ;;
+            aarch64*) target=aarch64-unknown-linux-musl ;;
+            *) echo "::error::[Honk] Unsupported architecture: $arch"; exit 1 ;;
+          esac
+
+          pkg="$PWD/package/openwrt-packages/honk"
+          cd "$pkg/src"
+          stable=$(grep -oP '^channel\s*=\s*"\K[^"]+' rust-toolchain.toml)
+          ebpf=$(grep -oP '^channel\s*=\s*"\K[^"]+' crates/honk-ebpf/rust-toolchain.toml)
+          cargo_bin="${CARGO_HOME:-$HOME/.cargo}/bin"
+          export PATH="$cargo_bin:$PATH"
+
+          rustup toolchain install "$stable" --profile minimal \
+            --target "$target" --component rustfmt --component clippy
+          rustup toolchain install "$ebpf" --profile minimal \
+            --component rust-src --component llvm-tools
+
+          source .github/ci/pins.env
+          archive=$(mktemp "$RUNNER_TEMP/honk-bpf-linker.XXXXXX")
+          trap 'rm -f -- "$archive"' EXIT
+          url="https://github.com/aya-rs/bpf-linker/releases/download/v${BPF_LINKER_VERSION}"
+          curl -fLS --retry 3 -o "$archive" "$url/bpf-linker-x86_64-unknown-linux-musl.tar.zst"
+          printf '%s  %s\n' "$BPF_LINKER_SHA256" "$archive" | sha256sum -c -
+          tar --zstd -xf "$archive" -C "$cargo_bin"
+          "$cargo_bin/bpf-linker" --version
+
+          grep -Fxq 'cd "${HONK_SRC:?HONK_SRC is not set}"' "$pkg/build.sh" ||
+            { echo '::error::[Honk] Upstream build.sh changed; check the Rust PATH patch'; exit 1; }
+          sed -i '/^cd "\${HONK_SRC:/a\
+          export PATH="${HONK_RUSTUP_BIN:?}:$PATH"\
+          unset RUSTUP_TOOLCHAIN RUSTC\
+          rustc --version' "$pkg/build.sh"
+          printf 'HONK_RUSTUP_BIN=%s\n' "$cargo_bin" >> "$GITHUB_ENV"
+          echo "::notice::[Honk] Toolchains ready: $stable ($target), $ebpf"
+
       - name: Download Packages
         if: env.WRT_TEST != 'true'
         run: |
