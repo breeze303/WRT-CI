@@ -155,29 +155,49 @@ echo " "
 fi
 
 # 拉取honk/src
+# Prepare the source tree required by the Honk package recipe.
 honk_pkg="${PKG_PATH%/}/openwrt-packages/honk"
-if [[ "${WRT_TEST:-}" != true && -f "$honk_pkg/Makefile" ]]; then
-    honk_tag=$(sed -nE \
-        's/^HONK_GIT_TAG[[:space:]]*:=[[:space:]]*\$\(if \$\(HONK_GIT_TAG\),\$\(HONK_GIT_TAG\),(v[0-9][A-Za-z0-9._-]*)\)[[:space:]]*$/\1/p' \
-        "$honk_pkg/Makefile")
 
-    if [[ ! "$honk_tag" =~ ^v[0-9][A-Za-z0-9._-]*$ ]]; then
-        echo "::error::Cannot read HONK_GIT_TAG from $honk_pkg/Makefile"
+if [[ "${WRT_TEST:-}" == true ]]; then
+    echo "[Honk] Skipped: WRT_TEST=true"
+elif [[ ! -f "$honk_pkg/Makefile" ]]; then
+    echo "[Honk] Skipped: $honk_pkg/Makefile not found"
+else
+    if ! honk_tag=$(sed -nE \
+        's/^HONK_GIT_TAG[[:space:]]*:=[[:space:]]*\$\(if \$\(HONK_GIT_TAG\),\$\(HONK_GIT_TAG\),(v[0-9][A-Za-z0-9._-]*)\)[[:space:]]*$/\1/p' \
+        "$honk_pkg/Makefile") ||
+        [[ ! "$honk_tag" =~ ^v[0-9][A-Za-z0-9._-]*$ ]]; then
+        echo "::error::[Honk] Could not read a valid HONK_GIT_TAG from $honk_pkg/Makefile"
         exit 1
     fi
 
     honk_src="$honk_pkg/src"
-    echo "Honk source tag: $honk_tag"
     if [[ ! -e "$honk_src" ]]; then
-        git clone --depth 1 --branch "$honk_tag" \
-            https://github.com/daeuniverse/honk.git "$honk_src" || exit 1
+        echo "[Honk] Cloning $honk_tag into $honk_src"
+        if ! git clone --depth 1 --branch "$honk_tag" \
+            https://github.com/daeuniverse/honk.git "$honk_src"; then
+            echo "::error::[Honk] Failed to clone $honk_tag into $honk_src"
+            exit 1
+        fi
+    else
+        echo "[Honk] Checking existing source at $honk_src (expected: $honk_tag)"
     fi
 
-    if [[ ! -f "$honk_src/Cargo.toml" || ! -e "$honk_src/.git" ]] ||
-        ! honk_head=$(git -C "$honk_src" rev-parse HEAD) ||
-        ! honk_expected=$(git -C "$honk_src" rev-parse --verify "refs/tags/$honk_tag^{commit}") ||
-        [[ "$honk_head" != "$honk_expected" ]]; then
-        echo "::error::$honk_src is not a Honk checkout at $honk_tag"
+    if [[ ! -f "$honk_src/Cargo.toml" || ! -e "$honk_src/.git" ]]; then
+        echo "::error::[Honk] Missing Cargo.toml or .git in $honk_src"
         exit 1
     fi
+
+    if ! honk_head=$(git -C "$honk_src" rev-parse HEAD) ||
+        ! honk_expected=$(git -C "$honk_src" rev-parse --verify "refs/tags/$honk_tag^{commit}"); then
+        echo "::error::[Honk] Could not resolve HEAD or tag $honk_tag in $honk_src"
+        exit 1
+    fi
+
+    if [[ "$honk_head" != "$honk_expected" ]]; then
+        echo "::error::[Honk] Version mismatch: HEAD=$honk_head, expected $honk_tag ($honk_expected)"
+        exit 1
+    fi
+
+    echo "::notice::[Honk] Source ready: $honk_tag (${honk_head:0:12}) at $honk_src"
 fi
